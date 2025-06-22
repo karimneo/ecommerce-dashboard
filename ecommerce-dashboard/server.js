@@ -21,11 +21,9 @@ app.use(cors({
     'https://lovableproject.com',
     'https://stratagem-commerce-insights.lovable.app',
     'https://ecommerce-dashboard-backend-qhke.onrender.com',
-    'https://id-preview--b63b7351-cd45-4fb3-b99a-b230fbb3c376.lovable.app',
-    /^https:\/\/.*\.lovableproject\.com$/,
-    /^https:\/\/.*\.lovable\.dev$/,
-    /^https:\/\/.*\.vercel\.app$/
+    'https://id-preview--b63b7351-cd45-4fb3-b99a-b230fbb3c376.lovable.app'
   ],
+  ,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
