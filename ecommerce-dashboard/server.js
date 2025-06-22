@@ -16,7 +16,26 @@ const supabase = createClient(
 );
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://localhost:3000', 
+    /^https:\/\/.*\.lovableproject\.com$/,
+    /^https:\/\/.*\.lovable\.dev$/,
+    /^https:\/\/.*\.vercel\.app$/,
+    'https://ecommerce-dashboard-backend-qhke.onrender.com'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin'
+  ],
+  exposedHeaders: ['Content-Length', 'X-Knowledge-Base']
+}));
 app.use(express.json());
 
 // Create uploads directory if it doesn't exist
@@ -37,7 +56,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// Authentication middleware
+// SIMPLIFIED Authentication middleware - just check token, no role requirements
 const authenticateUser = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
@@ -52,20 +71,9 @@ const authenticateUser = async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
-    // Get user role
-    const { data: roleData, error: roleError } = await supabase
-      .from('user_roles')
-      .select('role, org_id')
-      .eq('user_id', user.user.id)
-      .single();
-
-    if (roleError) {
-      return res.status(403).json({ error: 'No role assigned' });
-    }
-
     req.user = user.user;
-    req.userRole = roleData.role;
-    req.orgId = roleData.org_id;
+    req.userRole = 'admin'; // Temporarily set everyone as admin
+    req.orgId = null; // No org check for now
     
     next();
   } catch (error) {
@@ -73,15 +81,15 @@ const authenticateUser = async (req, res, next) => {
   }
 };
 
-// Admin-only middleware
-const requireAdmin = (req, res, next) => {
-  if (req.userRole !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
-  }
-  next();
-};
-
 // ===== PUBLIC ROUTES =====
+
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', true);
+  res.sendStatus(200);
+});
 
 // Health check (public)
 app.get('/api/health', (req, res) => {
@@ -105,13 +113,13 @@ app.get('/', (req, res) => {
 
 // ===== PROTECTED ROUTES =====
 
-// Dashboard data (admin only)
-app.get('/api/dashboard', authenticateUser, requireAdmin, async (req, res) => {
+// Dashboard data - SIMPLIFIED (no org check)
+app.get('/api/dashboard', authenticateUser, async (req, res) => {
   try {
     const { data: reports, error } = await supabase
       .from('campaign_reports')
-      .select('*')
-      .eq('org_id', req.orgId);
+      .select('*');
+      // Removed .eq('org_id', req.orgId) check
 
     if (error) throw error;
 
@@ -166,11 +174,11 @@ app.get('/api/dashboard', authenticateUser, requireAdmin, async (req, res) => {
   }
 });
 
-// Get products (authenticated users)
+// Get products - SIMPLIFIED (no org check)
 app.get('/api/products', authenticateUser, async (req, res) => {
   try {
     const [reportsResult, settingsResult] = await Promise.all([
-      supabase.from('campaign_reports').select('*').eq('org_id', req.orgId),
+      supabase.from('campaign_reports').select('*'), // Removed .eq('org_id', req.orgId)
       supabase.from('product_settings').select('*')
     ]);
 
@@ -245,7 +253,7 @@ app.get('/api/products', authenticateUser, async (req, res) => {
   }
 });
 
-// File upload (authenticated users)
+// File upload - SIMPLIFIED (no org check)
 app.post('/api/upload', authenticateUser, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -265,7 +273,7 @@ app.post('/api/upload', authenticateUser, upload.single('file'), async (req, res
           const { data: report, error } = await supabase
             .from('campaign_reports')
             .insert({
-              org_id: req.orgId,
+              org_id: null, // No org_id for now
               platform,
               file_name: fileName,
               data: results,
@@ -298,8 +306,8 @@ app.post('/api/upload', authenticateUser, upload.single('file'), async (req, res
   }
 });
 
-// Update product revenue (admin only)
-app.post('/api/products/:productName/revenue', authenticateUser, requireAdmin, async (req, res) => {
+// Update product revenue
+app.post('/api/products/:productName/revenue', authenticateUser, async (req, res) => {
   try {
     const { productName } = req.params;
     const { revenuePerConversion } = req.body;
@@ -325,47 +333,24 @@ app.post('/api/products/:productName/revenue', authenticateUser, requireAdmin, a
   }
 });
 
-// User management - invite user (admin only)
-app.post('/api/users/invite', authenticateUser, requireAdmin, async (req, res) => {
-  try {
-    const { email, role } = req.body;
-    
-    const { data, error } = await supabase
-      .from('user_roles')
-      .insert({
-        email: email,
-        role: role,
-        org_id: req.orgId,
-        created_by: req.user.id
-      })
-      .select();
-
-    if (error) throw error;
-
-    res.json({ message: 'User role created successfully', email, role });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // Get user profile
 app.get('/api/profile', authenticateUser, async (req, res) => {
   res.json({
     id: req.user.id,
     email: req.user.email,
-    role: req.userRole,
-    orgId: req.orgId
+    role: 'admin',
+    orgId: null
   });
 });
 
-// Other endpoints
+// Reports endpoint - SIMPLIFIED
 app.get('/api/reports', authenticateUser, async (req, res) => {
   try {
     const { data: reports, error } = await supabase
       .from('campaign_reports')
       .select('*')
-      .eq('org_id', req.orgId)
-      .order('upload_date', { ascending: false });
+      // Removed .eq('org_id', req.orgId) check
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
     res.json(reports);
@@ -374,15 +359,20 @@ app.get('/api/reports', authenticateUser, async (req, res) => {
   }
 });
 
-app.get('/api/platform-analytics', authenticateUser, requireAdmin, async (req, res) => {
+// Other endpoints
+app.get('/api/platform-analytics', authenticateUser, async (req, res) => {
   res.json([]);
 });
 
-app.get('/api/team-activity', authenticateUser, requireAdmin, async (req, res) => {
+app.get('/api/team-activity', authenticateUser, async (req, res) => {
   res.json([]);
 });
 
 app.get('/api/trends', authenticateUser, async (req, res) => {
+  res.json([]);
+});
+
+app.get('/api/creatives', authenticateUser, async (req, res) => {
   res.json([]);
 });
 
