@@ -102,42 +102,55 @@ app.post('/api/upload', authenticateUser, upload.single('file'), async (req, res
     const { platform = 'Facebook' } = req.body;
     const filePath = req.file.path;
     const fileName = req.file.originalname;
-    const results = [];
 
+    console.log('🟢 File received:', fileName);
+
+    const results = [];
     fs.createReadStream(filePath)
       .pipe(csv())
-      .on('data', (data) => results.push(data))
+      .on('data', (data) => {
+        results.push(data);
+      })
       .on('end', async () => {
         try {
+          console.log('✅ Parsed CSV rows:', results.length);
+
           const { data: report, error } = await supabase
             .from('campaign_reports')
-            .insert([{
+            .insert({
               org_id: null,
               platform,
               file_name: fileName,
               data: results,
               processed: true
-            }])
+            })
             .select();
 
-          if (error) throw error;
-          fs.unlinkSync(filePath);
+          if (error) {
+            console.error('❌ Supabase insert error:', error.message);
+            return res.status(500).json({ error: error.message });
+          }
 
-          res.json({ 
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+
+          res.json({
             message: 'File uploaded successfully',
             recordCount: results.length,
             reportId: report[0].id,
-            platform: platform
+            platform
           });
-        } catch (err) {
-          console.error(err);
-          res.status(500).json({ error: err.message });
+
+        } catch (dbError) {
+          console.error('🔥 Crash during DB insert:', dbError.message);
+          res.status(500).json({ error: dbError.message });
         }
       });
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    console.error('🚨 Upload route error:', error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
