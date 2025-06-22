@@ -17,24 +17,11 @@ const supabase = createClient(
 
 // Middleware
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'https://localhost:3000', 
-    /^https:\/\/.*\.lovableproject\.com$/,
-    /^https:\/\/.*\.lovable\.dev$/,
-    /^https:\/\/.*\.vercel\.app$/,
-    'https://ecommerce-dashboard-backend-qhke.onrender.com'
-  ],
+  origin: true, // Allow ALL origins temporarily
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With',
-    'Accept',
-    'Origin'
-  ],
-  exposedHeaders: ['Content-Length', 'X-Knowledge-Base']
+  allowedHeaders: ['*'],
+  exposedHeaders: ['*']
 }));
 app.use(express.json());
 
