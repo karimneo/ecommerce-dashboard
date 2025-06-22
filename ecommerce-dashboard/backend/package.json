@@ -1,5 +1,5 @@
 {
-  "name": "ecommerce-backend",
+  "name": "ecommerce-dashboard-backend",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
