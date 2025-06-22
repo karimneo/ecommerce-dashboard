@@ -3,6 +3,7 @@ const cors = require('cors');
 const multer = require('multer');
 const csv = require('csv-parser');
 const fs = require('fs');
+const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -18,8 +19,23 @@ const supabase = createClient(
 app.use(cors());
 app.use(express.json());
 
-// File upload setup
-const upload = multer({ dest: 'uploads/' });
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// File upload setup with fixed configuration
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+
+const upload = multer({ storage: storage });
 
 // Authentication middleware
 const authenticateUser = async (req, res, next) => {
@@ -72,7 +88,18 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'Backend is running!', 
     timestamp: new Date(),
-    database: 'Supabase connected'
+    database: 'Supabase connected',
+    uploadsDir: uploadsDir,
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Root route
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Ecommerce Dashboard API',
+    status: 'Running',
+    endpoints: ['/api/health', '/api/dashboard', '/api/products', '/api/upload']
   });
 });
 
@@ -250,7 +277,10 @@ app.post('/api/upload', authenticateUser, upload.single('file'), async (req, res
             return res.status(500).json({ error: error.message });
           }
 
-          fs.unlinkSync(filePath);
+          // Clean up uploaded file
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
           
           res.json({ 
             message: 'File uploaded successfully',
@@ -300,7 +330,6 @@ app.post('/api/users/invite', authenticateUser, requireAdmin, async (req, res) =
   try {
     const { email, role } = req.body;
     
-    // For now, just create the role entry - user will sign up themselves
     const { data, error } = await supabase
       .from('user_roles')
       .insert({
@@ -329,7 +358,7 @@ app.get('/api/profile', authenticateUser, async (req, res) => {
   });
 });
 
-// Other endpoints (admin only)
+// Other endpoints
 app.get('/api/reports', authenticateUser, async (req, res) => {
   try {
     const { data: reports, error } = await supabase
@@ -346,17 +375,14 @@ app.get('/api/reports', authenticateUser, async (req, res) => {
 });
 
 app.get('/api/platform-analytics', authenticateUser, requireAdmin, async (req, res) => {
-  // Your existing platform analytics code...
   res.json([]);
 });
 
 app.get('/api/team-activity', authenticateUser, requireAdmin, async (req, res) => {
-  // Your existing team activity code...
   res.json([]);
 });
 
 app.get('/api/trends', authenticateUser, async (req, res) => {
-  // Your existing trends code...
   res.json([]);
 });
 
@@ -366,4 +392,5 @@ app.listen(PORT, () => {
   console.log(`🚀 Backend running on port ${PORT}`);
   console.log(`🔐 Authentication enabled`);
   console.log(`📊 API endpoints secured`);
+  console.log(`📁 Uploads directory: ${uploadsDir}`);
 });
