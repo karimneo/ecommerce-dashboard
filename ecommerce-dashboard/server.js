@@ -19,10 +19,9 @@ const supabase = createClient(
 app.use(cors({
   origin: [
     'http://localhost:3000',
-    'https://localhost:3000', 
-    'https://lovableproject.com',                    // ✅ Add base domain
-    'https://YOUR-APP.lovableproject.com',           // ✅ Add full subdomain (replace with real)
-    'https://YOUR-APP.lovable.dev',                  // ✅ If on .dev environment
+    'https://localhost:3000',
+    'https://lovableproject.com',
+    'https://stratagem-commerce-insights.lovable.app', // ✅ Your real Lovable app
     'https://ecommerce-dashboard-backend-qhke.onrender.com',
     /^https:\/\/.*\.lovableproject\.com$/,
     /^https:\/\/.*\.lovable\.dev$/,
@@ -33,6 +32,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Content-Length', 'X-Knowledge-Base']
 }));
+
 
 app.use(express.json());
 
