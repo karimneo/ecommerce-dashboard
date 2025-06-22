@@ -1,4 +1,4 @@
-export default function handler(req, res) {
+module.exports = (req, res) => {
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -12,6 +12,8 @@ export default function handler(req, res) {
       status: 'Backend is running!', 
       timestamp: new Date(),
       database: 'Supabase connected',
-      message: 'Vercel serverless function working!'
+      message: 'Vercel serverless function working!',
+      method: req.method,
+      url: req.url
     });
-  }
+  };
