@@ -96,24 +96,24 @@ app.get('/', (req, res) => {
 app.post('/api/upload', authenticateUser, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
+      console.error('❌ No file received');
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const { platform = 'Facebook' } = req.body;
     const filePath = req.file.path;
     const fileName = req.file.originalname;
+    const { platform = 'Facebook' } = req.body;
 
-    console.log('🟢 File received:', fileName);
+    console.log('🟢 Upload started:', fileName);
 
     const results = [];
     fs.createReadStream(filePath)
       .pipe(csv())
-      .on('data', (data) => {
-        results.push(data);
-      })
+      .on('data', (data) => results.push(data))
       .on('end', async () => {
         try {
-          console.log('✅ Parsed CSV rows:', results.length);
+          console.log('✅ CSV parsed, rows:', results.length);
+          console.log('📦 Sample row:', results[0]);
 
           const { data: report, error } = await supabase
             .from('campaign_reports')
@@ -136,7 +136,7 @@ app.post('/api/upload', authenticateUser, upload.single('file'), async (req, res
           }
 
           res.json({
-            message: 'File uploaded successfully',
+            message: 'Upload successful',
             recordCount: results.length,
             reportId: report[0].id,
             platform
