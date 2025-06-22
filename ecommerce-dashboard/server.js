@@ -25,7 +25,7 @@ app.use(cors({
     /^https:\/\/.*\.lovableproject\.com$/,
     /^https:\/\/.*\.lovable\.dev$/,
     /^https:\/\/.*\.vercel\.app$/
-  ], 
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
@@ -67,6 +67,7 @@ const authenticateUser = async (req, res, next) => {
   }
 };
 
+// OPTIONS preflight
 app.options('*', (req, res) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin);
   res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
@@ -75,6 +76,7 @@ app.options('*', (req, res) => {
   res.sendStatus(200);
 });
 
+// Health check
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'Backend is running!', 
@@ -89,10 +91,11 @@ app.get('/', (req, res) => {
   res.json({ 
     message: 'Ecommerce Dashboard API',
     status: 'Running',
-    endpoints: ['/api/health', '/api/dashboard', '/api/products', '/api/upload']
+    endpoints: ['/api/health', '/api/upload', '/api/reports', '/api/dashboard']
   });
 });
 
+// ✅ Upload CSV file
 app.post('/api/upload', authenticateUser, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -154,8 +157,47 @@ app.post('/api/upload', authenticateUser, upload.single('file'), async (req, res
   }
 });
 
+// ✅ Get list of uploaded reports
+app.get('/api/reports', authenticateUser, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('campaign_reports')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-// START SERVER
+    if (error) throw error;
+
+    res.json(data);
+  } catch (err) {
+    console.error('❌ Failed to fetch reports:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ✅ Get dashboard summary
+app.get('/api/dashboard', authenticateUser, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('campaign_reports')
+      .select('platform, data');
+
+    if (error) throw error;
+
+    const summary = {};
+    data.forEach((row) => {
+      const platform = row.platform || 'Unknown';
+      const count = Array.isArray(row.data) ? row.data.length : 0;
+      summary[platform] = (summary[platform] || 0) + count;
+    });
+
+    res.json({ summary });
+  } catch (err) {
+    console.error('❌ Failed to fetch dashboard data:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ✅ Start server
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🚀 Backend running on port ${PORT}`);
